@@ -299,7 +299,7 @@
     const cfg = window.AI_CONFIG || {};
     const ep = cfg.endpoint || '/api/analyze';
     try {
-      const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Access-Code': code }, body: JSON.stringify(payload) });
+      const res = await fetch(ep, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ code }, payload)) });
       let data = null; try { data = await res.json(); } catch (e) {}
       if (res.status === 401) { try { localStorage.removeItem('yd_final26_aicode'); } catch (e) {} S.ai = { sid, needCode: true, err: '접근 코드가 필요하거나 틀렸어요. 선생님께 받은 코드를 입력하세요.' }; }
       else if (!res.ok || !data || !data.text) S.ai = { sid, err: (data && data.error) || 'AI 분석 서버에 연결하지 못했어요. 학교에서 배포한 주소(웹사이트)에서 다시 시도해 보세요. 위의 기본 진단은 그대로 쓸 수 있어요.' };

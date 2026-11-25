@@ -114,11 +114,12 @@ async function callWith(provider, prompt) {
 
 module.exports = async (req, res) => {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST만 지원해요.' }); return; }
-  const need = process.env.ACCESS_CODE;
-  if (need && req.headers['x-access-code'] !== need) { res.status(401).json({ error: '접근 코드가 필요해요.' }); return; }
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = null; } }
   if (!body || typeof body !== 'object') { res.status(400).json({ error: '요청 형식이 올바르지 않아요.' }); return; }
+  const need = String(process.env.ACCESS_CODE || '').trim();
+  const got = String(body.code || req.headers['x-access-code'] || '').trim();
+  if (need && got !== need) { res.status(401).json({ error: '접근 코드가 필요해요.' }); return; }
   if (JSON.stringify(body).length > 30000) { res.status(413).json({ error: '보낸 자료가 너무 커요.' }); return; }
   if ((!body.wrongs || !body.wrongs.length) && (!body.stats || !body.stats.length)) { res.status(400).json({ error: '분석할 풀이 기록이 없어요.' }); return; }
   try {
