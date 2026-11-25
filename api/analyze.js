@@ -7,7 +7,7 @@
  *                  openai 는 OpenAI 호환 API 전부(OpenAI, Groq, OpenRouter, Upstage 등)에 쓸 수 있습니다.
  *   AI_API_KEY   : 해당 서비스의 API 키 (필수)
  *   AI_MODEL     : 모델 이름 (예: gpt-4o-mini, claude-sonnet-4-5, gemini-2.5-flash)
- *   AI_BASE_URL  : OpenAI 호환 서버 주소 (선택, 기본 https://api.openai.com/v1)
+ *   AI_BASE_URL  : 중계 서버 주소 (선택). openai 기본 https://api.openai.com/v1, anthropic 기본 https://api.anthropic.com/v1
  *   ACCESS_CODE  : 설정하면 학생이 이 코드를 입력해야 AI 분석을 쓸 수 있습니다 (선택, 권장)
  */
 
@@ -60,10 +60,11 @@ async function callAI(prompt) {
   const key = process.env.AI_API_KEY;
   if (!key) throw new Error('서버에 AI_API_KEY가 설정되지 않았어요.');
   if (provider === 'anthropic') {
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
+    const abase = (process.env.AI_BASE_URL || 'https://api.anthropic.com/v1').replace(/\/$/, '');
+    const r = await fetch(abase + '/messages', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: process.env.AI_MODEL || 'claude-sonnet-4-5', max_tokens: 1500, system: SYSTEM, messages: [{ role: 'user', content: prompt }] })
+      body: JSON.stringify({ model: process.env.AI_MODEL || 'claude-opus-5-5', max_tokens: 1500, system: SYSTEM, messages: [{ role: 'user', content: prompt }] })
     });
     const d = await r.json();
     if (!r.ok) throw new Error((d.error && d.error.message) || 'AI 응답 오류');
