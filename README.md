@@ -16,7 +16,7 @@ Vercel → 프로젝트 → Settings → Environment Variables 에 다음을 넣
 
 | 이름 | 값 | 예 |
 |---|---|---|
-| `AI_PROVIDER` | `openai`(OpenAI 호환 전부) / `anthropic` / `gemini` | `gemini` |
+| `AI_PROVIDER` | `openai`(OpenAI 호환 전부) / `anthropic` / `gemini` / `auto`(중계 서버 방식을 모를 때) | `auto` |
 | `AI_API_KEY` | 쓰려는 서비스의 API 키 | |
 | `AI_MODEL` | 모델 이름 | `gemini-2.5-flash`, `gpt-4o-mini` |
 | `AI_BASE_URL` | (OpenAI 호환 서버일 때만) 주소 | `https://api.groq.com/openai/v1` |

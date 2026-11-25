@@ -3,7 +3,7 @@
  * 학생 화면은 이 함수만 부르고, 외부 AI API 키는 서버 환경 변수에만 둡니다.
  *
  * 환경 변수 (Vercel → Project → Settings → Environment Variables)
- *   AI_PROVIDER  : openai | anthropic | gemini   (기본 openai)
+ *   AI_PROVIDER  : openai | anthropic | gemini | auto   (기본 openai; auto는 Claude 방식→OpenAI 호환 방식 순서로 시도)
  *                  openai 는 OpenAI 호환 API 전부(OpenAI, Groq, OpenRouter, Upstage 등)에 쓸 수 있습니다.
  *   AI_API_KEY   : 해당 서비스의 API 키 (필수)
  *   AI_MODEL     : 모델 이름 (예: gpt-4o-mini, claude-sonnet-4-5, gemini-2.5-flash)
@@ -57,18 +57,37 @@ function buildPrompt(b) {
 
 async function callAI(prompt) {
   const provider = (process.env.AI_PROVIDER || 'openai').toLowerCase();
+  if (provider === 'auto') {
+    // 중계 서버가 어떤 방식인지 모를 때: Claude 방식 → 안 되면 OpenAI 호환 방식
+    try { return await callWith('anthropic', prompt); }
+    catch (e) { if (!e.retryable) throw e; return await callWith('openai', prompt); }
+  }
+  return callWith(provider, prompt);
+}
+
+async function readJson(r) {
+  const t = await r.text();
+  try { return JSON.parse(t); } catch (e) { return { error: { message: t.slice(0, 160) } }; }
+}
+function fail(r, d) {
+  const e = new Error((d && d.error && (d.error.message || d.error)) || ('HTTP ' + r.status));
+  e.retryable = r.status === 404 || r.status === 405 || r.status === 400;
+  return e;
+}
+
+async function callWith(provider, prompt) {
   const key = process.env.AI_API_KEY;
   if (!key) throw new Error('서버에 AI_API_KEY가 설정되지 않았어요.');
   if (provider === 'anthropic') {
     const abase = (process.env.AI_BASE_URL || 'https://api.anthropic.com/v1').replace(/\/$/, '');
     const r = await fetch(abase + '/messages', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+      headers: { 'content-type': 'application/json', 'x-api-key': key, authorization: 'Bearer ' + key, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({ model: process.env.AI_MODEL || 'claude-opus-5-5', max_tokens: 1500, system: SYSTEM, messages: [{ role: 'user', content: prompt }] })
     });
-    const d = await r.json();
-    if (!r.ok) throw new Error((d.error && d.error.message) || 'AI 응답 오류');
-    return (d.content || []).map((c) => c.text || '').join('');
+    const d = await readJson(r);
+    if (!r.ok || !Array.isArray(d.content)) throw fail(r, d);
+    return d.content.map((c) => c.text || '').join('');
   }
   if (provider === 'gemini') {
     const model = process.env.AI_MODEL || 'gemini-2.5-flash';
@@ -86,10 +105,10 @@ async function callAI(prompt) {
   const r = await fetch(base + '/chat/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key },
-    body: JSON.stringify({ model: process.env.AI_MODEL || 'gpt-4o-mini', temperature: 0.5, max_tokens: 1500, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] })
+    body: JSON.stringify({ model: process.env.AI_MODEL || (provider === 'openai' && process.env.AI_PROVIDER === 'auto' ? 'claude-opus-5-5' : 'gpt-4o-mini'), temperature: 0.5, max_tokens: 1500, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: prompt }] })
   });
-  const d = await r.json();
-  if (!r.ok) throw new Error((d.error && d.error.message) || 'AI 응답 오류');
+  const d = await readJson(r);
+  if (!r.ok) throw fail(r, d);
   return d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : '';
 }
 
